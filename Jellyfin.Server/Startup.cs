@@ -74,6 +74,7 @@ namespace Jellyfin.Server
             services.AddCustomAuthentication();
 
             services.AddJellyfinApiAuthorization();
+            services.AddJellyfinApiRateLimiting();
 
             var productHeader = new ProductInfoHeaderValue(
                 _serverApplicationHost.Name.Replace(' ', '-'),
@@ -210,6 +211,7 @@ namespace Jellyfin.Server
                 mainApp.UseJellyfinApiSwagger(_serverConfigurationManager);
                 mainApp.UseQueryStringDecoding();
                 mainApp.UseRouting();
+                mainApp.UseRateLimiter();
                 mainApp.UseAuthorization();
 
                 mainApp.UseIPBasedAccessValidation();

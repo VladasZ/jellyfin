@@ -179,5 +179,33 @@ namespace Jellyfin.Server.Integration.Tests.Controllers
             Assert.False(user.HasPassword);
             Assert.False(user.HasConfiguredPassword);
         }
+
+        // The login path once had no cap, a password guesser ran as fast as
+        // the line allowed. Runs last in the class because it spends the
+        // whole login budget of the shared test host.
+        [Fact]
+        [Priority(3)]
+        public async Task AuthenticateByName_TooManyAttempts_TooManyRequests()
+        {
+            var client = _factory.CreateClient();
+            client.DefaultRequestHeaders.TryAddWithoutValidation(AuthHelper.AuthHeaderName, AuthHelper.DummyAuthHeader);
+            var request = new AuthenticateUserByName()
+            {
+                Username = "nobody",
+                Pw = "wrong",
+            };
+
+            using var first = await client.PostAsJsonAsync("Users/AuthenticateByName", request, _jsonOptions);
+            Assert.Equal(HttpStatusCode.Unauthorized, first.StatusCode);
+
+            var last = first.StatusCode;
+            for (var i = 0; i < 10; i++)
+            {
+                using var response = await client.PostAsJsonAsync("Users/AuthenticateByName", request, _jsonOptions);
+                last = response.StatusCode;
+            }
+
+            Assert.Equal(HttpStatusCode.TooManyRequests, last);
+        }
     }
 }

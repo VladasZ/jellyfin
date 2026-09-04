@@ -27,6 +27,7 @@ using MediaBrowser.Model.Users;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Api.Controllers;
@@ -207,6 +208,7 @@ public class UserController : BaseJellyfinApiController
     /// <response code="200">User authenticated.</response>
     /// <returns>A <see cref="Task"/> containing an <see cref="AuthenticationRequest"/> with information about the new session.</returns>
     [HttpPost("AuthenticateByName")]
+    [EnableRateLimiting(RateLimitPolicies.Login)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<ActionResult<AuthenticationResult>> AuthenticateUserByName([FromBody, Required] AuthenticateUserByName request)
     {
@@ -242,6 +244,7 @@ public class UserController : BaseJellyfinApiController
     /// <response code="400">Missing token.</response>
     /// <returns>A <see cref="Task"/> containing an <see cref="AuthenticationRequest"/> with information about the new session.</returns>
     [HttpPost("AuthenticateWithQuickConnect")]
+    [EnableRateLimiting(RateLimitPolicies.Login)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public ActionResult<AuthenticationResult> AuthenticateWithQuickConnect([FromBody, Required] QuickConnectDto request)
     {

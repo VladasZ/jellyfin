@@ -6,6 +6,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
 using System.Security.Claims;
+using System.Threading.RateLimiting;
 using Emby.Server.Implementations;
 using Jellyfin.Api.Auth;
 using Jellyfin.Api.Auth.AnonymousLanAccessPolicy;
@@ -24,6 +25,7 @@ using Jellyfin.Extensions.Json;
 using Jellyfin.Server.Configuration;
 using Jellyfin.Server.Filters;
 using MediaBrowser.Common.Api;
+using MediaBrowser.Common.Extensions;
 using MediaBrowser.Common.Net;
 using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.Session;
@@ -31,7 +33,9 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Cors.Infrastructure;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.OpenApi.Any;
@@ -48,6 +52,32 @@ namespace Jellyfin.Server.Extensions
     /// </summary>
     public static class ApiServiceCollectionExtensions
     {
+        /// <summary>
+        /// Adds jellyfin API rate limiting policies to the DI container.
+        /// </summary>
+        /// <param name="serviceCollection">The service collection.</param>
+        /// <returns>The updated service collection.</returns>
+        public static IServiceCollection AddJellyfinApiRateLimiting(this IServiceCollection serviceCollection)
+        {
+            return serviceCollection.AddRateLimiter(options =>
+            {
+                options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+                // Ten logins a minute lets every device in a household sign in
+                // at once and still slows a password guesser to a crawl. A
+                // sliding window so the budget never resets in one burst.
+                options.AddPolicy(RateLimitPolicies.Login, context => RateLimitPartition.GetSlidingWindowLimiter(
+                    context.GetNormalizedRemoteIP().ToString(),
+                    _ => new SlidingWindowRateLimiterOptions
+                    {
+                        PermitLimit = 10,
+                        Window = TimeSpan.FromMinutes(1),
+                        SegmentsPerWindow = 6,
+                        QueueLimit = 0
+                    }));
+            });
+        }
+
         /// <summary>
         /// Adds jellyfin API authorization policies to the DI container.
         /// </summary>
